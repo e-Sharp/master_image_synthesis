@@ -5,8 +5,11 @@
 #include "student/all.hpp"
 #include "app.h"
 #include "draw.h"
+#include "program.h"
 #include "orbiter.h"
+#include "uniforms.h"
 
+#include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -14,8 +17,20 @@
 using namespace stu;
 
 struct curve {
-  std::vector<Transform> nodes = {};
+    std::vector<Transform> nodes = {};
 };
+
+Transform at(const curve& c, float t) {
+    auto s = float(c.nodes.size());
+    if(t < 0.f) {
+        return c.nodes.front();
+    } else {
+        t = t - std::floor(t / (s - 1)) * (s - 1);
+        float i;
+        auto f = std::modf(t, &i);
+        return (1.f - f) * c.nodes[i] + f * c.nodes[i + 1];
+    }
+}
 
 auto circle(std::size_t n) {
     auto v = std::vector<Point>(n);
@@ -28,7 +43,6 @@ auto circle(std::size_t n) {
 auto tube(const curve& c, int n = 10) {
     auto m = std::make_unique<Mesh>(GL_TRIANGLES);
     auto ci = circle(n);
-    for(auto& p : ci) p = p / 10.f;
     for(std::size_t i = 1; i < c.nodes.size(); ++i) {
         auto& n0 = c.nodes[i - 1];
         auto& n1 = c.nodes[i];
@@ -38,7 +52,7 @@ auto tube(const curve& c, int n = 10) {
             m->vertex(n1(ci[(i + 1) % n]));
 
             m->vertex(n0(ci[i]));
-            m->vertex(n1(ci[(i + 1) % n]));  
+            m->vertex(n1(ci[(i + 1) % n]));
             m->vertex(n1(ci[i]));
         }
     }
@@ -48,7 +62,6 @@ auto tube(const curve& c, int n = 10) {
 auto debug_mesh(const curve &c) {
   auto m = std::make_unique<Mesh>(GL_LINES);
   for (auto &&n : c.nodes) {
-      std::cout << w(n) << std::endl;
     m->color(Red());
     m->vertex(w(n));
     m->vertex(w(n) + x(n) / 5);
@@ -79,8 +92,8 @@ void subdivide_chaikin(curve &c) {
   for (std::size_t i = 1; i < c.nodes.size(); ++i) {
     auto& n0 = c.nodes[i - 1];
     auto& n1 = c.nodes[i];
-    ns.push_back(n0 + (n1 - n0) / 4.f);
-    ns.push_back(n0 + (n1 - n0) * 3.f / 4.f);
+    if(i != 1)                  ns.push_back(n0 + (n1 - n0) / 4.f);
+    if(i != c.nodes.size() - 1) ns.push_back(n0 + (n1 - n0) * 3.f / 4.f);
   }
   ns.push_back(c.nodes.back());
   c.nodes = std::move(ns);
@@ -119,7 +132,7 @@ public:
     TP() : App(1024, 640) {}
 
     int init() {
-        m_camera.lookat(Point(0, 0, 0), 5);
+        m_camera.lookat(Point(0, 0, 0), 2);
 
         glClearColor(0.2f, 0.2f, 0.2f, 1.f);
 
@@ -127,21 +140,14 @@ public:
         glDepthFunc(GL_LESS);
         glEnable(GL_DEPTH_TEST);
 
-        auto c = curve();
-        /*c.nodes.push_back(Translation(0, 0, 0));
-        c.nodes.push_back(Translation(0, 0, 1));
-        c.nodes.push_back(Translation(0, 1, 1));
-        c.nodes.push_back(Translation(0, 1, 0));
-        c.nodes.push_back(Translation(1, 1, 0));
-        c.nodes.push_back(Translation(1, 1, 1));
-        c.nodes.push_back(Translation(1, 0, 1));
-        c.nodes.push_back(Translation(1, 0, 0));*/
+        c = curve();
 
+        c.nodes.push_back(Translation(25, 0, 0));
+        c.nodes.push_back(Translation(50, 0, 0));
+        c.nodes.push_back(Translation(50, 50, 0));
+        c.nodes.push_back(Translation(0, 50, 0));
         c.nodes.push_back(Translation(0, 0, 0));
-        c.nodes.push_back(Translation(1, 0, 0));
-        c.nodes.push_back(Translation(1, 1, 0));
-        c.nodes.push_back(Translation(0, 1, 0));
-        c.nodes.push_back(Translation(0, 0, 0));
+        c.nodes.push_back(Translation(25, 0, 0));
 
         subdivide_chaikin(c);
         subdivide_chaikin(c);
@@ -163,6 +169,25 @@ public:
         return 0;
     }
 
+    int update(float t, float dt) override {
+        int n;
+        if(key_state(SDLK_LEFT)) {
+            std::cout << "ok" << std::endl;
+            angle -= .1f;
+        } else if(key_state(SDLK_RIGHT)) {
+            angle += .1f;
+        }
+
+        time = t / 100.f;
+        auto ct = at(c, time);
+
+        auto r = RotationX(deg_per_rad * angle);
+
+        camera = Lookat(w(ct) - 5.f * x(ct) + 3.f * r(y(ct)), w(ct), r(y(ct)));
+
+        return 0;
+    }
+
     int render() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -177,14 +202,37 @@ public:
             m_camera.translation((float)mx / (float)window_width(),
                                 (float)my / (float)window_height());
 
-        draw(*debug_mesh, m_camera, 0);
-        // draw(*curve_mesh, m_camera, 0);
+        Transform v = camera;
+        Transform vp = Perspective(90.f, 16.f / 9.f, 1.f, 1000.f) * v;
+    
+        glUseProgram(mesh_program);
+        program_uniform(mesh_program, "mesh_color", Color(1, 1, 1, 1));
+        program_uniform(mesh_program, "mvMatrix", v);
+        program_uniform(mesh_program, "mvpMatrix", vp);
+        curve_mesh->draw(mesh_program, true, false, false, false, false);
+
+        glUseProgram(mesh_color_program);
+        program_uniform(mesh_color_program, "mvpMatrix", vp);
+        debug_mesh->draw(mesh_color_program, true, false, false, true, false);
 
         return 1;
     }
 
 protected:
+    GLuint mesh_program = read_program(
+        smart_path("data/shaders/mesh.glsl"));
+    GLuint mesh_color_program = read_program(
+        smart_path("data/shaders/mesh_color.glsl"),
+        "#define USE_COLOR\n");
+
+    Transform camera;
+
     Orbiter m_camera;
+
+    float angle = 0.f;
+    float time = 0.f;
+
+    curve c;
 
     std::unique_ptr<Mesh> curve_mesh;
     std::unique_ptr<Mesh> debug_mesh;

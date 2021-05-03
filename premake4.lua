@@ -234,3 +234,5 @@ project("tp2")
     kind "ConsoleApp"
     targetdir "bin"
     files ( gkit_files )
+
+include "box-intersection-etu"

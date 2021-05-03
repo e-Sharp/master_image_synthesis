@@ -85,24 +85,27 @@ void DrawParam::draw( Mesh& mesh )
     GLuint program= create_program(mesh.primitives(), use_texcoord, use_normal, use_color, m_use_light, m_use_alpha_test);
     
     glUseProgram(program);
-    program_uniform(program, "mesh_color", mesh.default_color());
+    if(!use_color)
+        program_uniform(program, "mesh_color", mesh.default_color());
     
     Transform mv= m_view * m_model;
     Transform mvp= m_projection * mv;
     
     program_uniform(program, "mvpMatrix", mvp);
-    program_uniform(program, "mvMatrix", mv);
     if(use_normal)
         program_uniform(program, "normalMatrix", mv.normal()); // transforme les normales dans le repere camera.
+    else
+        program_uniform(program, "mvMatrix", mv);
     
     // utiliser une texture, elle ne sera visible que si le mesh a des texcoords...
     if(use_texcoord && m_texture > 0)
         program_use_texture(program, "diffuse_color", 0, m_texture);
-    
+        
     if(m_use_light)
     {
         program_uniform(program, "light", m_view(m_light));       // transforme la position de la source dans le repere camera, comme les normales
         program_uniform(program, "light_color", m_light_color);
+        program_uniform(program, "mvMatrix", mv);
     }
     
     if(m_use_alpha_test)
@@ -130,10 +133,11 @@ void DrawParam::draw( const TriangleGroup& group, Mesh& mesh )
     Transform mvp= m_projection * mv;
     
     program_uniform(program, "mvpMatrix", mvp);
-    program_uniform(program, "mvMatrix", mv);
     if(use_normal)
         program_uniform(program, "normalMatrix", mv.normal()); // transforme les normales dans le repere camera.
-    
+    else
+        program_uniform(program, "mvMatrix", mv);
+        
     // utiliser une texture, elle ne sera visible que si le mesh a des texcoords...
     if(use_texcoord && m_texture > 0)
         program_use_texture(program, "diffuse_color", 0, m_texture);
@@ -142,6 +146,7 @@ void DrawParam::draw( const TriangleGroup& group, Mesh& mesh )
     {
         program_uniform(program, "light", m_view(m_light));       // transforme la position de la source dans le repere camera, comme les normales
         program_uniform(program, "light_color", m_light_color);
+        program_uniform(program, "mvMatrix", mv);
     }
     
     if(m_use_alpha_test)

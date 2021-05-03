@@ -4,8 +4,8 @@
 
 namespace stu {
 
-Vector w(const Transform& t) {
-    return Vector(t.m[0][3], t.m[1][3], t.m[2][3]);
+Point w(const Transform& t) {
+    return Point(t.m[0][3], t.m[1][3], t.m[2][3]);
 }
 
 void w(Transform& t, const Vector& v) {
