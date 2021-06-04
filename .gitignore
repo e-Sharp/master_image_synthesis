@@ -2,3 +2,7 @@
 bin
 build
 extern
+
+*.o
+*.d
+*.make

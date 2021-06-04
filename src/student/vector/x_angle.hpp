@@ -1,6 +1,6 @@
 #pragma once
 
-#include "gKit/vec.h"
+#include "src/gKit/vec.h"
 
 namespace stu {
 

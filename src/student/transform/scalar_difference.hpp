@@ -1,6 +1,6 @@
 #pragma once
 
-#include "gKit/mat.h"
+#include "src/gKit/mat.h"
 
 namespace stu {
 
