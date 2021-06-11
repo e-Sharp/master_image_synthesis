@@ -63,14 +63,14 @@ auto debug_mesh(const curve &c) {
   auto m = std::make_unique<Mesh>(GL_LINES);
   for (auto &&n : c.nodes) {
     m->color(Red());
-    m->vertex(w(n));
-    m->vertex(w(n) + x(n) / 5);
+    m->vertex(pos(n));
+    m->vertex(pos(n) + fw(n) / 5);
     m->color(Green());
-    m->vertex(w(n));
-    m->vertex(w(n) + y(n) / 5);
+    m->vertex(pos(n));
+    m->vertex(pos(n) + up(n) / 5);
     m->color(Blue());
-    m->vertex(w(n));
-    m->vertex(w(n) + z(n) / 5);
+    m->vertex(pos(n));
+    m->vertex(pos(n) + right(n) / 5);
   }
   return m;
 }
@@ -80,8 +80,8 @@ auto mesh(const curve &c) {
   for (std::size_t i = 1; i < c.nodes.size(); ++i) {
     auto &n0 = c.nodes[i - 1];
     auto &n1 = c.nodes[i];
-    m->vertex(w(n0));
-    m->vertex(w(n1));
+    m->vertex(pos(n0));
+    m->vertex(pos(n1));
   }
   return m;
 }
@@ -101,28 +101,28 @@ void subdivide_chaikin(curve &c) {
 
 void compute_forward(curve &c) {
     if (c.nodes.size() < 2) throw std::logic_error("");
-    x(c.nodes[0], normalize(w(c.nodes[1]) - w(c.nodes[0])));
+    fw(c.nodes[0], normalize(pos(c.nodes[1]) - pos(c.nodes[0])));
     for (std::size_t i = 2; i < c.nodes.size(); ++i) {
-        x(c.nodes[i - 1], normalize(w(c.nodes[i]) - w(c.nodes[i - 2])));
+        fw(c.nodes[i - 1], normalize(pos(c.nodes[i]) - pos(c.nodes[i - 2])));
     }
-    x(c.nodes[c.nodes.size() - 1], normalize(w(c.nodes[c.nodes.size() - 1]) - w(c.nodes[c.nodes.size() - 2])));
+    fw(c.nodes[c.nodes.size() - 1], normalize(pos(c.nodes[c.nodes.size() - 1]) - pos(c.nodes[c.nodes.size() - 2])));
 }
 
 void compute_z(curve &c) {
-    z(c.nodes.front(), normalize(perpendicular(x(c.nodes.front()))));
+    right(c.nodes.front(), normalize(perpendicular(fw(c.nodes.front()))));
 
     for(std::size_t i = 1; i < c.nodes.size(); ++i) {
         auto &n0 = c.nodes[i - 1];
         auto &n1 = c.nodes[i];
 
-        auto r = rotation(x(n0), x(n1));
-        z(n1, normalize(r(z(n0))));
+        auto r = rotation(fw(n0), fw(n1));
+        right(n1, normalize(r(right(n0))));
     }
 }
 
 void compute_y(curve &c) {
     for(auto&& n : c.nodes) {
-        y(n, cross(z(n), x(n)));
+        up(n, cross(right(n), fw(n)));
     }
 }
 
@@ -172,18 +172,17 @@ public:
     int update(float t, float dt) override {
         int n;
         if(key_state(SDLK_LEFT)) {
-            std::cout << "ok" << std::endl;
-            angle -= .1f;
+            angle -= .01f;
         } else if(key_state(SDLK_RIGHT)) {
-            angle += .1f;
+            angle += .01f;
         }
 
         time = t / 100.f;
         auto ct = at(c, time);
 
-        auto r = RotationX(deg_per_rad * angle);
+        player_transform = ct * RotationX(deg_per_rad * angle) * Translation(0, 2.f, 0);
 
-        camera = Lookat(w(ct) - 5.f * x(ct) + 3.f * r(y(ct)), w(ct), r(y(ct)));
+        camera = Lookat(pos(player_transform) - 5.f * fw(player_transform) + 3.f * up(player_transform), pos(player_transform), up(player_transform));
 
         return 0;
     }
@@ -211,6 +210,12 @@ public:
         program_uniform(mesh_program, "mvpMatrix", vp);
         curve_mesh->draw(mesh_program, true, false, false, false, false);
 
+        glUseProgram(mesh_program);
+        program_uniform(mesh_program, "mesh_color", Color(1, 1, 1, 1));
+        program_uniform(mesh_program, "mvMatrix", v * player_transform);
+        program_uniform(mesh_program, "mvpMatrix", vp * player_transform);
+        player_mesh.draw(mesh_program, true, false, false, false, false);
+
         glUseProgram(mesh_color_program);
         program_uniform(mesh_color_program, "mvpMatrix", vp);
         debug_mesh->draw(mesh_color_program, true, false, false, true, false);
@@ -236,6 +241,10 @@ protected:
 
     std::unique_ptr<Mesh> curve_mesh;
     std::unique_ptr<Mesh> debug_mesh;
+
+    Mesh player_mesh = read_mesh(smart_path("data/cube.obj"));
+
+    Transform player_transform;
 };
 
 void throwing_main() {
