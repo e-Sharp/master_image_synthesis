@@ -1,9 +1,9 @@
 #pragma once
 
-#include "student/transform/scalar_quotient.hpp"
-#include "student/transform/scalar_sum.hpp"
+#include "src/student/transform/scalar_quotient.hpp"
+#include "src/student/transform/scalar_sum.hpp"
 
-#include "gKit/mat.h"
+#include "src/gKit/mat.h"
 
 namespace stu {
 

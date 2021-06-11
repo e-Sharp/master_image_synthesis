@@ -1,8 +1,8 @@
 #pragma once
 
-#include "student/constant/deg_per_rad.hpp"
+#include "src/student/constant/deg_per_rad.hpp"
 
-#include "gKit/vec.h"
+#include "src/gKit/vec.h"
 
 #include <cmath>
 #include <stdexcept>
