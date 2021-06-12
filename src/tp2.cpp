@@ -13,6 +13,7 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <ctime>
 
 using namespace stu;
 
@@ -194,6 +195,9 @@ public:
     TP() : App(1024, 640) {}
 
     int init() {
+        program_uniform(m_program_draw, "ww", 1024);
+        program_uniform(m_program_draw, "wh", 640);
+
         m_camera.lookat(Point(0, 0, 0), 2);
 
         glGenVertexArrays(1, &m_vao);
@@ -206,12 +210,14 @@ public:
 
         c = curve();
 
-        c.nodes.push_back(Translation(25, 0, 0));
-        c.nodes.push_back(Translation(50, 0, 0));
-        c.nodes.push_back(Translation(50, 50, 0));
-        c.nodes.push_back(Translation(0, 50, 0));
-        c.nodes.push_back(Translation(0, 0, 0));
-        c.nodes.push_back(Translation(25, 0, 0));
+        std::srand(std::time(nullptr));
+
+        for (size_t i=0; i<NB_POINTS; ++i) {
+            ra += std::rand()%(STEP);
+            rb += std::rand()%(STEP);
+            rc += std::rand()%(STEP);
+            c.nodes.push_back(Translation(ra, rb, rc));
+        }
 
         subdivide_chaikin(c);
         subdivide_chaikin(c);
@@ -289,7 +295,7 @@ public:
         glBindVertexArray(m_vao);
 
         // Transform inv= Inverse(m_camera.viewport() * m_camera.projection() * m_camera.view());
-        program_uniform(m_program_draw, "invMatrix", v);
+        program_uniform(m_program_draw, "invMatrix", (player_transform));
         program_uniform(m_program_draw, "camera_position", Inverse(v)(Point(0, 0, 0)));
 
         glBindTexture(GL_TEXTURE_CUBE_MAP, m_texture);
@@ -318,6 +324,9 @@ protected:
     float time = 0.f;
 
     curve c;
+    const uint NB_POINTS = 1000;
+    const uint STEP = 50;
+    uint ra=0, rb=0, rc=0;
 
     std::unique_ptr<Mesh> curve_mesh;
     std::unique_ptr<Mesh> debug_mesh;
