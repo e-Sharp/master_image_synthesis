@@ -349,10 +349,10 @@ protected:
     float angle = 0.f;
     float time = 0.f;
 
-    curve c;
-    const uint NB_POINTS = 1000;
-    const uint STEP = 50;
-    uint ra=0, rb=0, rc=0;
+    const unsigned NB_POINTS = 1000;
+    const unsigned STEP = 50;
+    unsigned ra=0, rb=0, rc=0;
+
     Tube c;
 
     std::unique_ptr<Mesh> curve_mesh;
