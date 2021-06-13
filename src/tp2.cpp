@@ -339,8 +339,8 @@ protected:
         smart_path("data/shaders/mesh_color.glsl"),
         "#define USE_COLOR\n");
     GLuint m_vao;
-    GLuint m_texture = read_cubemap(0, "data/cubemap/space.png");
-    GLuint m_program_draw = read_program("tutos/draw_cubemap.glsl");
+    GLuint m_texture = read_cubemap(0, smart_path("data/cubemap/space.png"));
+    GLuint m_program_draw = read_program(smart_path("tutos/draw_cubemap.glsl"));
 
     Transform camera;
 
