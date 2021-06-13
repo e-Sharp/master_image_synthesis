@@ -78,16 +78,12 @@ GLuint read_cubemap( const int unit, const char *filename,  const GLenum texel_t
     return texture;
 }
 
-struct curve {
-    std::vector<Transform> nodes = {};
-};
-
-Transform at(const curve& c, float t) {
+Transform at(const Tube& c, float t) {
     auto s = float(c.nodes.size());
     if(t < 0.f) {
         return c.nodes.front();
     } else {
-        t = t - std::floor(t / (s - 1)) * (s - 1);
+        t = mod(t, float(s - 1));
         float i;
         auto f = std::modf(t, &i);
         return (1.f - f) * c.nodes[i] + f * c.nodes[i + 1];
@@ -102,7 +98,7 @@ auto circle(std::size_t n) {
     return v;
 }
 
-auto tube(const curve& c, int n = 10) {
+auto tube(const Tube& c, int n = 10) {
     auto m = std::make_unique<Mesh>(GL_TRIANGLES);
     auto ci = circle(n);
     for(std::size_t i = 1; i < c.nodes.size(); ++i) {
@@ -121,7 +117,7 @@ auto tube(const curve& c, int n = 10) {
     return m;
 }
 
-auto debug_mesh(const curve &c) {
+auto debug_mesh(const Tube &c) {
   auto m = std::make_unique<Mesh>(GL_LINES);
   for (auto &&n : c.nodes) {
     m->color(Red());
@@ -137,7 +133,7 @@ auto debug_mesh(const curve &c) {
   return m;
 }
 
-auto mesh(const curve &c) {
+auto mesh(const Tube &c) {
   auto m = std::make_unique<Mesh>(GL_LINES);
   for (std::size_t i = 1; i < c.nodes.size(); ++i) {
     auto &n0 = c.nodes[i - 1];
@@ -148,7 +144,7 @@ auto mesh(const curve &c) {
   return m;
 }
 
-void subdivide_chaikin(curve &c) {
+void subdivide_chaikin(Tube &c) {
   auto ns = std::vector<Transform>();
   ns.push_back(c.nodes.front());
   for (std::size_t i = 1; i < c.nodes.size(); ++i) {
@@ -161,7 +157,7 @@ void subdivide_chaikin(curve &c) {
   c.nodes = std::move(ns);
 }
 
-void compute_forward(curve &c) {
+void compute_forward(Tube &c) {
     if (c.nodes.size() < 2) throw std::logic_error("");
     fw(c.nodes[0], normalize(pos(c.nodes[1]) - pos(c.nodes[0])));
     for (std::size_t i = 2; i < c.nodes.size(); ++i) {
@@ -170,7 +166,7 @@ void compute_forward(curve &c) {
     fw(c.nodes[c.nodes.size() - 1], normalize(pos(c.nodes[c.nodes.size() - 1]) - pos(c.nodes[c.nodes.size() - 2])));
 }
 
-void compute_z(curve &c) {
+void compute_z(Tube &c) {
     right(c.nodes.front(), normalize(perpendicular(fw(c.nodes.front()))));
 
     for(std::size_t i = 1; i < c.nodes.size(); ++i) {
@@ -182,12 +178,11 @@ void compute_z(curve &c) {
     }
 }
 
-void compute_y(curve &c) {
+void compute_y(Tube &c) {
     for(auto&& n : c.nodes) {
         up(n, cross(right(n), fw(n)));
     }
 }
-
 
 class TP : public App {
 public:
@@ -204,7 +199,7 @@ public:
         glDepthFunc(GL_LEQUAL);
         glEnable(GL_DEPTH_TEST);
 
-        c = curve();
+        c = Tube();
 
         c.nodes.push_back(Translation(25, 0, 0));
         c.nodes.push_back(Translation(50, 0, 0));
@@ -225,6 +220,16 @@ public:
         curve_mesh = tube(c, 30);
         debug_mesh = ::debug_mesh(c);
 
+        obstacles.resize(100);
+        for(int i = 0; i < 100; ++i) {
+            auto& o = obstacles[i];
+            o.azimuth = float(i);
+            o.coordinate = float(i);
+            o.radius = 2.f;
+        }
+
+        player.coords.radius = 2.f;
+
         return 0;
     }
 
@@ -234,19 +239,23 @@ public:
     }
 
     int update(float t, float dt) override {
-        int n;
         if(key_state(SDLK_LEFT)) {
-            angle -= .01f;
+            player.turn_left();
         } else if(key_state(SDLK_RIGHT)) {
-            angle += .01f;
+            player.turn_right();
         }
 
-        time = t / 100.f;
-        auto ct = at(c, time);
+        player.update();
 
-        player_transform = ct * RotationX(deg_per_rad * angle) * Translation(0, 2.f, 0);
+        auto ct = at(c, player.coords.coordinate);
+
+        player_transform = ct * RotationX(deg_per_rad * player.coords.azimuth) * Translation(0, player.coords.radius, 0);
 
         camera = Lookat(pos(player_transform) - 5.f * fw(player_transform) + 3.f * up(player_transform), pos(player_transform), up(player_transform));
+
+        {
+            player_collider.T = player_transform;
+        }
 
         return 0;
     }
@@ -274,17 +283,34 @@ public:
         program_uniform(mesh_program, "mvpMatrix", vp);
         curve_mesh->draw(mesh_program, true, false, false, false, false);
 
-        glUseProgram(mesh_program);
-        program_uniform(mesh_program, "mesh_color", Color(1, 1, 1, 1));
-        program_uniform(mesh_program, "mvMatrix", v * player_transform);
-        program_uniform(mesh_program, "mvpMatrix", vp * player_transform);
-        player_mesh.draw(mesh_program, true, false, false, false, false);
+        for(const auto& o : obstacles) {
+            auto model = at(c, o.coordinate) * RotationX(o.azimuth) * Translation(0.f, o.radius, 0.f);
+            auto collider = Box();
+            collider.T = model;
+
+            glUseProgram(mesh_program);
+            if(collides(collider, player_collider)) {
+                program_uniform(mesh_program, "mesh_color", Color(1, 0, 0, 1));
+            } else {
+                program_uniform(mesh_program, "mesh_color", Color(0, 1, 0, 1));
+            }
+            program_uniform(mesh_program, "mvMatrix", v * model);
+            program_uniform(mesh_program, "mvpMatrix", vp * model);
+            obstable_mesh.draw(mesh_program, true, false, false, false, false);
+        }
+
+        {
+            glUseProgram(mesh_program);
+            program_uniform(mesh_program, "mesh_color", Color(1, 1, 1, 1));
+            program_uniform(mesh_program, "mvMatrix", v * player_transform);
+            program_uniform(mesh_program, "mvpMatrix", vp * player_transform);
+            player.mesh.draw(mesh_program, true, false, false, false, false);
+        }
 
         glUseProgram(mesh_color_program);
         program_uniform(mesh_color_program, "mvpMatrix", vp);
         debug_mesh->draw(mesh_color_program, true, false, false, true, false);
 
-        
         glUseProgram(m_program_draw);
         glBindVertexArray(m_vao);
 
@@ -314,15 +340,17 @@ protected:
 
     Orbiter m_camera;
 
-    float angle = 0.f;
-    float time = 0.f;
-
-    curve c;
+    Tube c;
 
     std::unique_ptr<Mesh> curve_mesh;
     std::unique_ptr<Mesh> debug_mesh;
 
-    Mesh player_mesh = read_mesh(smart_path("data/cube.obj"));
+    std::vector<CylindricalCoordinates> obstacles;
+    Player player;
+
+    Box player_collider = {};
+
+    Mesh obstable_mesh = read_mesh(smart_path("data/cube.obj"));
 
     Transform player_transform;
 };

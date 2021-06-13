@@ -4,9 +4,9 @@
 
 namespace stu {
 
-template<typename Point>
+template<typename Node>
 struct Curve {
-	std::vector<Point> points;
+	std::vector<Node> nodes = {};
 };
 
 }

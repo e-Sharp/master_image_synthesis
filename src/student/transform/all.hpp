@@ -9,8 +9,3 @@
 #include "scalar_quotient.hpp"
 #include "scalar_sum.hpp"
 #include "up.hpp"
-
-#include "x.hpp"
-#include "y.hpp"
-#include "z.hpp"
-#include "w.hpp"
