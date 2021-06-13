@@ -18,12 +18,14 @@ void main( )
 uniform mat4 invMatrix;
 uniform vec3 camera_position;
 uniform samplerCube texture0;
+uniform int ww;
+uniform int wh;
 
 out vec4 fragment_color;
 
 void main( )
 {
-    vec4 p= invMatrix * vec4(gl_FragCoord.xyz, 1);
+    vec4 p= invMatrix * vec4(gl_FragCoord.x-ww/2, gl_FragCoord.y-wh/2 - wh/10, gl_FragCoord.z, 1);
     vec3 pixel= p.xyz / p.w;
     
     vec3 direction= normalize(pixel - camera_position);
