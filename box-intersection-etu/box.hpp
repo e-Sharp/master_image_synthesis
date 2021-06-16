@@ -8,13 +8,17 @@
 
 class Box {
   public :
-    Box() ;
-    Box(const Point& pmin, const Point& pmax) ;
+    Box() = default;
+
+    Box(const Point& i_pmin, const Point& i_pmax) {
+		pmin = i_pmin ;
+		pmax = i_pmax ;
+	}
 
     bool collides(const Box& rhs) const;
 
-    Point pmin, pmax ;
-    Transform T ;
+    Point pmin = Origin(), pmax = Origin();
+    Transform T = Identity();
 } ;
 
 inline
