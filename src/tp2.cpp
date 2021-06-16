@@ -198,6 +198,12 @@ public:
         program_uniform(m_program_draw, "ww", 1024);
         program_uniform(m_program_draw, "wh", 640);
 
+        m_colors.resize(16);
+        const Materials& materials= player_mesh.materials();
+        assert(materials.count() <= int(m_colors.size()));
+        for(int i= 0; i < materials.count(); i++)
+            m_colors[i]= materials.material(i).diffuse;
+
         m_camera.lookat(Point(0, 0, 0), 2);
 
         glGenVertexArrays(1, &m_vao);
@@ -280,11 +286,14 @@ public:
         program_uniform(mesh_program, "mvpMatrix", vp);
         curve_mesh->draw(mesh_program, true, false, false, false, false);
 
-        glUseProgram(mesh_program);
-        program_uniform(mesh_program, "mesh_color", Color(1, 1, 1, 1));
-        program_uniform(mesh_program, "mvMatrix", v * player_transform);
-        program_uniform(mesh_program, "mvpMatrix", vp * player_transform);
-        player_mesh.draw(mesh_program, true, false, false, false, false);
+        // glUseProgram(mesh_program);
+        glUseProgram(m_program);
+        program_uniform(m_program, "mesh_color", Color(1, 1, 1, 1));
+        program_uniform(m_program, "mvMatrix", v * player_transform);
+        program_uniform(m_program, "mvpMatrix", vp * player_transform);
+        int location= glGetUniformLocation(m_program, "materials");
+        glUniform4fv(location, m_colors.size(), &m_colors[0].r);
+        player_mesh.draw(m_program, true, false, true, false, true);
 
         glUseProgram(mesh_color_program);
         program_uniform(mesh_color_program, "mvpMatrix", vp);
@@ -314,7 +323,9 @@ protected:
         "#define USE_COLOR\n");
     GLuint m_vao;
     GLuint m_texture = read_cubemap(0, "data/cubemap/space.png");
+    GLuint m_program= read_program("tutos/tuto9_materials.glsl");
     GLuint m_program_draw = read_program("tutos/draw_cubemap.glsl");
+    std::vector<Color> m_colors;
 
     Transform camera;
 
@@ -331,7 +342,7 @@ protected:
     std::unique_ptr<Mesh> curve_mesh;
     std::unique_ptr<Mesh> debug_mesh;
 
-    Mesh player_mesh = read_mesh(smart_path("data/cube.obj"));
+    Mesh player_mesh = read_mesh(smart_path("data/ship.obj"));
 
     Transform player_transform;
 };
