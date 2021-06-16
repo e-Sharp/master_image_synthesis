@@ -1,10 +1,10 @@
 #pragma once
 
-#include "student/cylindrical_coordinates.hpp"
+#include "src/student/cylindrical_coordinates.hpp"
 
-#include "gKit/mat.h"
-#include "gKit/mesh.h"
-#include "gKit/window.h"
+#include "src/gKit/mat.h"
+#include "src/gKit/mesh.h"
+#include "src/gKit/window.h"
 
 namespace stu {
 

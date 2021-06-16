@@ -2,8 +2,8 @@
 
 #include "track.hpp"
 
-#include "student/cylindrical_coordinates.hpp"
-#include "student/mod.hpp"
+#include "src/student/cylindrical_coordinates.hpp"
+#include "src/student/mod.hpp"
 
 namespace stu {
 

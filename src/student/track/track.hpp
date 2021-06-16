@@ -1,11 +1,11 @@
 #pragma once
 
-#include "student/transform/all.hpp"
-#include "student/vector/all.hpp"
-#include "student/chaikin.hpp"
+#include "src/student/transform/all.hpp"
+#include "src/student/vector/all.hpp"
+#include "src/student/chaikin.hpp"
 
-#include "gKit/mat.h"
-#include "gKit/vec.h"
+#include "src/gKit/mat.h"
+#include "src/gKit/vec.h"
 
 #include <cstdlib>
 #include <vector>
