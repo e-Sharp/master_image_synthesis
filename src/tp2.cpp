@@ -17,6 +17,8 @@
 
 using namespace stu;
 
+Mesh Obstacle::mesh = read_mesh(smart_path("data/cube.obj"));
+
 GLuint read_cubemap( const int unit, const char *filename,  const GLenum texel_type = GL_RGBA )
 {
     // les 6 faces sur une croix
@@ -79,18 +81,6 @@ GLuint read_cubemap( const int unit, const char *filename,  const GLenum texel_t
     return texture;
 }
 
-Transform at(const Tube& c, float t) {
-    auto s = float(c.nodes.size());
-    if(t < 0.f) {
-        return c.nodes.front();
-    } else {
-        t = mod(t, float(s - 1));
-        float i;
-        auto f = std::modf(t, &i);
-        return (1.f - f) * c.nodes[i] + f * c.nodes[i + 1];
-    }
-}
-
 auto circle(std::size_t n) {
     auto v = std::vector<Point>(n);
     for(std::size_t i = 0; i < n; ++i) {
@@ -99,7 +89,7 @@ auto circle(std::size_t n) {
     return v;
 }
 
-auto tube(const Tube& c, int n = 10) {
+auto tube(const Track& c, int n = 10) {
     auto m = std::make_unique<Mesh>(GL_TRIANGLES);
     auto ci = circle(n);
     for(std::size_t i = 1; i < c.nodes.size(); ++i) {
@@ -118,73 +108,6 @@ auto tube(const Tube& c, int n = 10) {
     return m;
 }
 
-auto debug_mesh(const Tube &c) {
-  auto m = std::make_unique<Mesh>(GL_LINES);
-  for (auto &&n : c.nodes) {
-    m->color(Red());
-    m->vertex(pos(n));
-    m->vertex(pos(n) + fw(n) / 5);
-    m->color(Green());
-    m->vertex(pos(n));
-    m->vertex(pos(n) + up(n) / 5);
-    m->color(Blue());
-    m->vertex(pos(n));
-    m->vertex(pos(n) + right(n) / 5);
-  }
-  return m;
-}
-
-auto mesh(const Tube &c) {
-  auto m = std::make_unique<Mesh>(GL_LINES);
-  for (std::size_t i = 1; i < c.nodes.size(); ++i) {
-    auto &n0 = c.nodes[i - 1];
-    auto &n1 = c.nodes[i];
-    m->vertex(pos(n0));
-    m->vertex(pos(n1));
-  }
-  return m;
-}
-
-void subdivide_chaikin(Tube &c) {
-  auto ns = std::vector<Transform>();
-  ns.push_back(c.nodes.front());
-  for (std::size_t i = 1; i < c.nodes.size(); ++i) {
-    auto& n0 = c.nodes[i - 1];
-    auto& n1 = c.nodes[i];
-    if(i != 1)                  ns.push_back(n0 + (n1 - n0) / 4.f);
-    if(i != c.nodes.size() - 1) ns.push_back(n0 + (n1 - n0) * 3.f / 4.f);
-  }
-  ns.push_back(c.nodes.back());
-  c.nodes = std::move(ns);
-}
-
-void compute_forward(Tube &c) {
-    if (c.nodes.size() < 2) throw std::logic_error("");
-    fw(c.nodes[0], normalize(pos(c.nodes[1]) - pos(c.nodes[0])));
-    for (std::size_t i = 2; i < c.nodes.size(); ++i) {
-        fw(c.nodes[i - 1], normalize(pos(c.nodes[i]) - pos(c.nodes[i - 2])));
-    }
-    fw(c.nodes[c.nodes.size() - 1], normalize(pos(c.nodes[c.nodes.size() - 1]) - pos(c.nodes[c.nodes.size() - 2])));
-}
-
-void compute_z(Tube &c) {
-    right(c.nodes.front(), normalize(perpendicular(fw(c.nodes.front()))));
-
-    for(std::size_t i = 1; i < c.nodes.size(); ++i) {
-        auto &n0 = c.nodes[i - 1];
-        auto &n1 = c.nodes[i];
-
-        auto r = rotation(fw(n0), fw(n1));
-        right(n1, normalize(r(right(n0))));
-    }
-}
-
-void compute_y(Tube &c) {
-    for(auto&& n : c.nodes) {
-        up(n, cross(right(n), fw(n)));
-    }
-}
-
 class TP : public App {
 public:
     TP() : App(1024, 640) {}
@@ -192,8 +115,6 @@ public:
     int init() {
         program_uniform(m_program_draw, "ww", 1024);
         program_uniform(m_program_draw, "wh", 640);
-
-        m_camera.lookat(Point(0, 0, 0), 2);
 
         glGenVertexArrays(1, &m_vao);
 
@@ -203,35 +124,14 @@ public:
         glDepthFunc(GL_LEQUAL);
         glEnable(GL_DEPTH_TEST);
 
-        c = Tube();
-
-        std::srand(std::time(nullptr));
-
-        for (size_t i=0; i<NB_POINTS; ++i) {
-            ra += std::rand()%(STEP);
-            rb += std::rand()%(STEP);
-            rc += std::rand()%(STEP);
-            c.nodes.push_back(Translation(ra, rb, rc));
-        }
-
-        subdivide_chaikin(c);
-        subdivide_chaikin(c);
-        subdivide_chaikin(c);
-        subdivide_chaikin(c);
-
-        compute_forward(c);
-        compute_z(c);
-        compute_y(c);
-
-        curve_mesh = tube(c, 30);
-        debug_mesh = ::debug_mesh(c);
+        curve_mesh = tube(track, 30);
 
         obstacles.resize(100);
         for(int i = 0; i < 100; ++i) {
             auto& o = obstacles[i];
-            o.azimuth = float(i);
-            o.coordinate = float(i);
-            o.radius = 2.f;
+            o.coords.azimuth = float(i);
+            o.coords.coordinate = float(i);
+            o.coords.radius = 2.f;
         }
 
         player.coords.radius = 2.f;
@@ -245,17 +145,22 @@ public:
     }
 
     int update(float t, float dt) override {
+        if(key_state(SDLK_DOWN)) {
+            player.brake();
+        }
         if(key_state(SDLK_LEFT)) {
             player.turn_left();
-        } else if(key_state(SDLK_RIGHT)) {
+        }
+        if(key_state(SDLK_RIGHT)) {
             player.turn_right();
+        }
+        if(key_state(SDLK_UP)) {
+            player.accelerate();
         }
 
         player.update();
 
-        auto ct = at(c, player.coords.coordinate);
-
-        player_transform = ct * RotationX(deg_per_rad * player.coords.azimuth) * Translation(0, player.coords.radius, 0);
+        player_transform = transform(track, player.coords);
 
         camera = Lookat(pos(player_transform) - 5.f * fw(player_transform) + 3.f * up(player_transform), pos(player_transform), up(player_transform));
 
@@ -269,17 +174,6 @@ public:
     int render() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // deplace la camera
-        int mx, my;
-        unsigned int mb = SDL_GetRelativeMouseState(&mx, &my);
-        if (mb & SDL_BUTTON(1)) // le bouton gauche est enfonce
-            m_camera.rotation(mx, my);
-        else if (mb & SDL_BUTTON(3)) // le bouton droit est enfonce
-            m_camera.move(mx);
-        else if (mb & SDL_BUTTON(2)) // le bouton du milieu est enfonce
-            m_camera.translation((float)mx / (float)window_width(),
-                                (float)my / (float)window_height());
-
         Transform v = camera;
         Transform vp = Perspective(90.f, 16.f / 9.f, 1.f, 1000.f) * v;
     
@@ -290,7 +184,7 @@ public:
         curve_mesh->draw(mesh_program, true, false, false, false, false);
 
         for(const auto& o : obstacles) {
-            auto model = at(c, o.coordinate) * RotationX(o.azimuth) * Translation(0.f, o.radius, 0.f);
+            auto model = transform(track, o.coords);
             auto collider = Box();
             collider.T = model;
 
@@ -306,16 +200,14 @@ public:
         }
 
         {
+            auto t = transform(track, player.coords) * player.transform;
+
             glUseProgram(mesh_program);
             program_uniform(mesh_program, "mesh_color", Color(1, 1, 1, 1));
-            program_uniform(mesh_program, "mvMatrix", v * player_transform);
-            program_uniform(mesh_program, "mvpMatrix", vp * player_transform);
+            program_uniform(mesh_program, "mvMatrix", v * t);
+            program_uniform(mesh_program, "mvpMatrix", vp * t);
             player.mesh.draw(mesh_program, true, false, false, false, false);
         }
-
-        glUseProgram(mesh_color_program);
-        program_uniform(mesh_color_program, "mvpMatrix", vp);
-        debug_mesh->draw(mesh_color_program, true, false, false, true, false);
 
         glUseProgram(m_program_draw);
         glBindVertexArray(m_vao);
@@ -325,7 +217,7 @@ public:
         program_uniform(m_program_draw, "camera_position", Inverse(v)(Point(0, 0, 0)));
 
         glBindTexture(GL_TEXTURE_CUBE_MAP, m_texture);
-        program_uniform(m_program_draw, "texture0", int(0));    
+        program_uniform(m_program_draw, "texture0", int(0));
         
         glDrawArrays(GL_TRIANGLES, 0, 3);
         
@@ -344,21 +236,11 @@ protected:
 
     Transform camera;
 
-    Orbiter m_camera;
-
-    float angle = 0.f;
-    float time = 0.f;
-
-    const unsigned NB_POINTS = 1000;
-    const unsigned STEP = 50;
-    unsigned ra=0, rb=0, rc=0;
-
-    Tube c;
+    Track track = {};
 
     std::unique_ptr<Mesh> curve_mesh;
-    std::unique_ptr<Mesh> debug_mesh;
 
-    std::vector<CylindricalCoordinates> obstacles;
+    std::vector<Obstacle> obstacles;
     Player player;
 
     Box player_collider = {};
@@ -377,6 +259,8 @@ void throwing_main() {
 }
 
 int main(int, char**) {
+    std::srand(std::time(nullptr));
+
     try {
         throwing_main();
     } catch(const std::exception &e) {
