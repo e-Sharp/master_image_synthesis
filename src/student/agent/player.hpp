@@ -90,7 +90,7 @@ struct Player {
 
 	Box collider = {};
 	CylindricalCoordinates coords = {};
-	Mesh mesh = read_mesh(smart_path("data/ship.obj"));
+	Mesh mesh = read_mesh(smart_path("data/ship_min.obj"));
 	Transform transform = Identity();
 };
 

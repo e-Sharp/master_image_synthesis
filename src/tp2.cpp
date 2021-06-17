@@ -209,7 +209,6 @@ public:
             auto t = transform(track, player.coords) * player.transform;
 
             glUseProgram(m_program);
-            program_uniform(m_program, "mesh_color", Color(1, 1, 1, 1));
             program_uniform(m_program, "mvMatrix", v * t);
             program_uniform(m_program, "mvpMatrix", vp * t);
             int location= glGetUniformLocation(m_program, "materials");
