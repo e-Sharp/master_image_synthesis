@@ -10,10 +10,10 @@
 #include "uniforms.h"
 
 #include <cstdlib>
+#include <ctime>
 #include <iostream>
 #include <memory>
 #include <vector>
-#include <ctime>
 
 using namespace stu;
 
@@ -82,27 +82,28 @@ GLuint read_cubemap( const int unit, const char *filename,  const GLenum texel_t
 }
 
 auto circle(std::size_t n) {
-    auto v = std::vector<Point>(n);
-    for(std::size_t i = 0; i < n; ++i) {
-        v[i] = RotationX(360.f / n * i)(Point(0, 1, 0));
-    }
-    return v;
+    
+    return std::vector<Point>();
 }
 
 auto tube(const Track& c, int n = 10) {
     auto m = std::make_unique<Mesh>(GL_TRIANGLES);
-    auto ci = circle(n);
+    auto circle = std::vector<Point>(n);
+    for(std::size_t i = 0; i < n; ++i) {
+        circle[i] = RotationX(360.f / n * i)(Point(0, 1, 0));
+    }
+    circle.push_back(circle.front());
     for(std::size_t i = 1; i < c.nodes.size(); ++i) {
         auto& n0 = c.nodes[i - 1];
         auto& n1 = c.nodes[i];
         for(std::size_t i = 0; i < n; ++ i) {
-            m->vertex(n0(ci[i]));
-            m->vertex(n0(ci[(i + 1) % n]));
-            m->vertex(n1(ci[(i + 1) % n]));
+            m->vertex(n0(circle[i]));
+            m->vertex(n0(circle[i + 1]));
+            m->vertex(n1(circle[i + 1]));
 
-            m->vertex(n0(ci[i]));
-            m->vertex(n1(ci[(i + 1) % n]));
-            m->vertex(n1(ci[i]));
+            m->vertex(n0(circle[i]));
+            m->vertex(n1(circle[i + 1]));
+            m->vertex(n1(circle[i]));
         }
     }
     return m;
@@ -181,13 +182,10 @@ public:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         Transform v = camera;
-        Transform vp = Perspective(90.f, 16.f / 9.f, 1.f, 1000.f) * v;
+        Transform p = Perspective(90.f, 16.f / 9.f, 1.f, 1000.f);
+        Transform vp = p * v;
     
-        glUseProgram(mesh_program);
-        program_uniform(mesh_program, "mesh_color", Color(1, 1, 1, 1));
-        program_uniform(mesh_program, "mvMatrix", v);
-        program_uniform(mesh_program, "mvpMatrix", vp);
-        curve_mesh->draw(mesh_program, true, false, false, false, false);
+        track.draw(Identity(), v, p);
 
         for(const auto& o : obstacles) {
             auto model = transform(track, o.coords);
@@ -235,9 +233,6 @@ public:
 protected:
     GLuint mesh_program = read_program(
         smart_path("data/shaders/mesh.glsl"));
-    GLuint mesh_color_program = read_program(
-        smart_path("data/shaders/mesh_color.glsl"),
-        "#define USE_COLOR\n");
     GLuint m_vao;
     GLuint m_texture = read_cubemap(0, smart_path("data/cubemap/space.png"));
     GLuint m_program= read_program(smart_path("tutos/tuto9_materials.glsl"));
@@ -261,11 +256,7 @@ protected:
 };
 
 void throwing_main() {
-    auto a = Vector(0, 0, 1);
-    auto b = Vector(0, 1, 0);
-    rotation(a, b);
-    TP tp;
-    tp.run();
+    TP().run();
 }
 
 int main(int, char**) {

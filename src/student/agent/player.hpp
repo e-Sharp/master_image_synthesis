@@ -34,6 +34,10 @@ struct Player {
 		turning_right = true;
 	}
 
+	void render() {
+		
+	}
+
 	void update() {
 		forward_acceleration = 0.01f * (accelerating - braking);
 		if(turning_left) {
