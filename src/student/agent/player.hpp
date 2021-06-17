@@ -34,6 +34,11 @@ struct Player {
 		turning_right = true;
 	}
 
+	void reset() {
+		coords = {0.f, 0.f, 2.f};
+		forward_speed = 0.1f;
+	}
+
 	void update() {
 		forward_acceleration = 0.01f * (accelerating - braking);
 		if(turning_left) {

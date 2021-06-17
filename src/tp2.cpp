@@ -15,6 +15,7 @@
 #include <memory>
 #include <vector>
 #include <ctime>
+#include <unistd.h>
 
 using namespace stu;
 
@@ -133,12 +134,15 @@ public:
 
         curve_mesh = tube(track, 30);
 
-        obstacles.resize(100);
-        for(int i = 0; i < 100; ++i) {
+        unsigned nb_obstacles = 2000;
+        obstacles.resize(nb_obstacles);
+        unsigned co = 20;
+        for(std::size_t i = 0; i < nb_obstacles; ++i) {
             auto& o = obstacles[i];
-            o.coords.azimuth = float(i);
-            o.coords.coordinate = float(i);
+            o.coords.azimuth = float(co*(std::rand()%20));
+            o.coords.coordinate = float(co);
             o.coords.radius = 2.f;
+            co += std::rand() % 5;
         }
 
         player.coords.radius = 2.f;
@@ -151,8 +155,6 @@ public:
     int quit() {
         curve_mesh->release();
         release_text(display);
-        scores.add(sc);
-        scores.save();
         return 0;
     }
 
@@ -189,11 +191,18 @@ public:
         clear(display);
         printf(display, 0, 0, "Score: %i", sc);
         for(std::size_t i=0; i<std::min(scores.NB, scores.getScores()->size()); ++i)
-            printf(display, 0, i+1, "Top %i: %i", i+1, scores.getScores()->at(i));
+            printf(display, 0, i+2, "Top %i: %i", i+1, scores.getScores()->at(i));
 
         draw(display, window_width(), window_height());
 
         return 0;
+    }
+
+    void loose() {
+        scores.add(sc);
+        scores.save();
+        sc = 0;
+        player.reset();
     }
 
     int render() {
@@ -216,6 +225,7 @@ public:
             glUseProgram(mesh_program);
             if(collides(collider, player_collider)) {
                 program_uniform(mesh_program, "mesh_color", Color(1, 0, 0, 1));
+                loose();
             } else {
                 program_uniform(mesh_program, "mesh_color", Color(0, 1, 0, 1));
             }
