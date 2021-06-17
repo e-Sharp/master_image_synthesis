@@ -258,7 +258,7 @@ public:
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
         display_text();
-        
+
         return 1;
     }
 
@@ -270,8 +270,8 @@ protected:
         "#define USE_COLOR\n");
     GLuint m_vao;
     GLuint m_texture = read_cubemap(0, smart_path("data/cubemap/space.png"));
-    GLuint m_program= read_program(smart_path("tutos/tuto9_materials.glsl"));
-    GLuint m_program_draw = read_program(smart_path("tutos/draw_cubemap.glsl"));
+    GLuint m_program= read_program(smart_path("src/shader/materials.glsl"));
+    GLuint m_program_draw = read_program(smart_path("src/shader/draw_cubemap.glsl"));
     std::vector<Color> m_colors;
 
     Transform camera;
