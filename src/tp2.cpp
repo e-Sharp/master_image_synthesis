@@ -8,6 +8,7 @@
 #include "program.h"
 #include "orbiter.h"
 #include "uniforms.h"
+#include "text.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -110,11 +111,11 @@ auto tube(const Track& c, int n = 10) {
 
 class TP : public App {
 public:
-    TP() : App(1024, 640) {}
+    TP() : App(1280, 720) {}
 
     int init() {
-        program_uniform(m_program_draw, "ww", 1024);
-        program_uniform(m_program_draw, "wh", 640);
+        program_uniform(m_program_draw, "ww", 1280);
+        program_uniform(m_program_draw, "wh", 720);
 
         m_colors.resize(16);
         const Materials& materials= player.mesh.materials();
@@ -142,11 +143,16 @@ public:
 
         player.coords.radius = 2.f;
 
+        display = create_text();
+        scores.load();
         return 0;
     }
 
     int quit() {
         curve_mesh->release();
+        release_text(display);
+        scores.add(sc);
+        scores.save();
         return 0;
     }
 
@@ -173,6 +179,19 @@ public:
         {
             player_collider.T = player_transform;
         }
+
+        sc = player.coords.coordinate;
+
+        return 0;
+    }
+
+    int display_text() {
+        clear(display);
+        printf(display, 0, 0, "Score: %i", sc);
+        for(std::size_t i=0; i<std::min(scores.NB, scores.getScores()->size()); ++i)
+            printf(display, 0, i+1, "Top %i: %i", i+1, scores.getScores()->at(i));
+
+        draw(display, window_width(), window_height());
 
         return 0;
     }
@@ -227,6 +246,8 @@ public:
         program_uniform(m_program_draw, "texture0", int(0));
         
         glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        display_text();
         
         return 1;
     }
@@ -257,6 +278,11 @@ protected:
     Mesh obstable_mesh = read_mesh(smart_path("data/cube.obj"));
 
     Transform player_transform;
+
+    Text display;
+    unsigned sc = 0;
+
+    Scores scores;
 };
 
 void throwing_main() {
