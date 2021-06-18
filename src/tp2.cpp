@@ -145,6 +145,19 @@ public:
             co += std::rand() % 5;
         }
 
+        unsigned nb_coins = 2000;
+        coins.resize(nb_coins);
+        co = 20;
+        unsigned d = 0;
+        for(std::size_t i = 0; i < nb_coins; ++i) {
+            auto& o = coins[i];
+            o.coords.azimuth = float(co*d);
+            o.coords.coordinate = float(co);
+            o.coords.radius = 2.f;
+            co += std::rand() % 5;
+            d += std::rand() % 6 - 3;
+        }
+
         player.coords.radius = 2.f;
 
         display = create_text();
@@ -182,7 +195,7 @@ public:
             player_collider.T = player_transform;
         }
 
-        sc = player.coords.coordinate;
+        sc = player.coords.coordinate + sc_coins;
 
         return 0;
     }
@@ -202,6 +215,7 @@ public:
         scores.add(sc);
         scores.save();
         sc = 0;
+        sc_coins = 0;
         player.reset();
     }
 
@@ -232,6 +246,29 @@ public:
             program_uniform(mesh_program, "mvMatrix", v * model);
             program_uniform(mesh_program, "mvpMatrix", vp * model);
             obstable_mesh.draw(mesh_program, true, false, false, false, false);
+        }
+
+        for(const auto& c : coins) {
+            auto model = transform(track, c.coords);
+            auto collider = Box();
+            collider.T = model;
+
+            glUseProgram(mesh_program);
+            if(collides(collider, player_collider)) {
+                program_uniform(mesh_program, "mesh_color", Color(1, 1, 0.5, 1));
+                if (!witness) {
+                    sc_coins += 20;
+                    witness = true;
+                    cref = c.coords.coordinate;
+                }
+            } else {
+                if (c.coords.coordinate == cref && witness)
+                    witness = false;
+                program_uniform(mesh_program, "mesh_color", Color(1, 1, 0, 1));
+            }
+            program_uniform(mesh_program, "mvMatrix", v * model);
+            program_uniform(mesh_program, "mvpMatrix", vp * model);
+            coin_mesh.draw(mesh_program, true, false, false, false, false);
         }
 
         {
@@ -281,16 +318,20 @@ protected:
     std::unique_ptr<Mesh> curve_mesh;
 
     std::vector<Obstacle> obstacles;
+    std::vector<Obstacle> coins;
     Player player;
 
     Box player_collider = {};
 
     Mesh obstable_mesh = read_mesh(smart_path("data/cube.obj"));
+    Mesh coin_mesh = read_mesh(smart_path("data/coin.obj"));
 
     Transform player_transform;
 
     Text display;
-    unsigned sc = 0;
+    unsigned sc = 0, sc_coins = 0;
+    bool witness = false;
+    float cref;
 
     Scores scores;
 };
