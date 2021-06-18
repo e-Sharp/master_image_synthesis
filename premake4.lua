@@ -112,7 +112,7 @@ end
 projects = {
     "shader_kit",
     "image_viewer",
-    "tp2"
+    "runner"
 }
 
 for i, name in ipairs(projects) do
@@ -229,7 +229,7 @@ end
 
 -- 
 
-project("tp2")
+project("runner")
     language "C++"
     kind "ConsoleApp"
     targetdir "bin"
