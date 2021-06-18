@@ -110,30 +110,17 @@ public:
                 co += std::rand() % 20 + 10;
             }
         }
-        curve_mesh = tube(track, 30);
 
-        unsigned nb_obstacles = 2000;
-        obstacles.resize(nb_obstacles);
-        unsigned co = 20;
-        for(std::size_t i = 0; i < nb_obstacles; ++i) {
-            auto& o = obstacles[i];
-            o.coords.azimuth = float(co*(std::rand()%20));
-            o.coords.coordinate = float(co);
-            o.coords.radius = 2.f;
-            co += std::rand() % 5;
-        }
-
-        unsigned nb_coins = 2000;
+        unsigned nb_coins = 600;
         coins.resize(nb_coins);
         co = 20;
         unsigned d = 0;
         for(std::size_t i = 0; i < nb_coins; ++i) {
             auto& o = coins[i];
-            o.coords.azimuth = float(co*d);
+            o.coords.azimuth = float((std::rand() % 12) * 30);
             o.coords.coordinate = float(co);
             o.coords.radius = 2.f;
-            co += std::rand() % 5;
-            d += std::rand() % 6 - 3;
+            co += std::rand() % 10 + 10;
         }
 
         display = create_text();
@@ -176,7 +163,7 @@ public:
             o.update(t);
         }
 
-        sc = player.coords.coordinate;
+        sc = player.coords.coordinate + sc_coins;
 
         return 0;
     }
@@ -198,6 +185,9 @@ public:
         sc = 0;
         sc_coins = 0;
         player.reset();
+        for(auto& c : coins) {
+            c.touched = false;
+        }
     }
 
     int render() {
@@ -226,7 +216,7 @@ public:
             obstable_mesh.draw(mesh_program, true, false, false, false, false);
         }
 
-        for(const auto& c : coins) {
+        for(auto& c : coins) {
             auto model = transform(track, c.coords);
             auto collider = Box();
             collider.T = model;
@@ -234,6 +224,7 @@ public:
             glUseProgram(mesh_program);
             if(collides(collider, player_collider)) {
                 program_uniform(mesh_program, "mesh_color", Color(1, 1, 0.5, 1));
+                c.touched = true;
                 if (!witness) {
                     sc_coins += 20;
                     witness = true;
@@ -246,7 +237,8 @@ public:
             }
             program_uniform(mesh_program, "mvMatrix", v * model);
             program_uniform(mesh_program, "mvpMatrix", vp * model);
-            coin_mesh.draw(mesh_program, true, false, false, false, false);
+            if (!c.touched)
+                coin_mesh.draw(mesh_program, true, false, false, false, false);
         }
 
         player.draw(transform(track, player.coords), v, p);
@@ -281,7 +273,7 @@ protected:
     Track track = {};
 
     std::vector<Obstacle> obstacles;
-    std::vector<Obstacle> coins;
+    std::vector<Coin> coins;
     Player player;
 
     Box player_collider = {};

@@ -11,6 +11,7 @@ namespace stu {
 struct Coin {
 	CylindricalCoordinates coords = {};
 	static Mesh mesh;
+    bool touched = false;
 };
 
 }

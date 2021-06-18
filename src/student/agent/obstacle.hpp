@@ -1,6 +1,7 @@
 #pragma once
 
 #include "src/student/cylindrical_coordinates.hpp"
+#include "src/student/constant/all.hpp"
 
 #include "src/gKit/mat.h"
 #include "src/gKit/mesh.h"
@@ -32,7 +33,7 @@ auto gear(Output o, float coord, int count) {
 	auto offset = rand() % 360;
 	auto velocity = (std::rand() % 6 + 1) * (std::rand() % 2 * 2 - 1) / 6.f;
 	for(int i = 0; i < count; ++i) {
-		auto& obs = Obstacle();
+		auto obs = Obstacle();
 		obs.coords.azimuth = 360.f * i / count + offset;
 		obs.coords.coordinate = coord;
 		obs.coords.radius = 2.f;
@@ -50,7 +51,7 @@ auto rotor(Output o, float coord, int count) {
 	auto velocity = (std::rand() % 6 + 1) * (std::rand() % 2 * 2 - 1) / 6.f;
 	std::cout << velocity << std::endl;
 	for(int i = 0; i < count; ++i) {
-		auto& obs = Obstacle();
+		auto obs = Obstacle();
 		obs.coords.azimuth = 360.f * i / count + offset;
 		obs.coords.coordinate = coord;
 		obs.coords.radius = 2.f;
