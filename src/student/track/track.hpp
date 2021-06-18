@@ -18,7 +18,7 @@ namespace stu {
 
 struct Track {
 	Track() {
-        unsigned NB_POINTS = 1000;
+        unsigned NB_POINTS = 100;
         unsigned STEP = 50;
         unsigned ra = 0, rb = 0, rc = 0;
 		for(std::size_t i = 0; i < NB_POINTS; ++i) {
