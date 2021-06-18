@@ -323,7 +323,7 @@ protected:
 
     Box player_collider = {};
 
-    Mesh obstable_mesh = read_mesh(smart_path("data/cube.obj"));
+    Mesh obstable_mesh = read_mesh(smart_path("data/obstacle.obj"));
     Mesh coin_mesh = read_mesh(smart_path("data/coin.obj"));
 
     Transform player_transform;
