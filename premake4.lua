@@ -28,7 +28,7 @@ solution "gKit2light"
         
     configuration "linux"
         buildoptions { "-mtune=native -march=native" }
-        buildoptions { "-std=c++17" }
+        buildoptions { "-std=c++14" }
         buildoptions { "-W -Wall -Wextra -Wsign-compare -Wno-unused-parameter -Wno-unused-function -Wno-unused-variable", "-pipe" }
         links { "GLEW", "SDL2", "SDL2_image", "GL" }
     
@@ -44,7 +44,7 @@ solution "gKit2light"
     
     configuration { "windows", "gmake", "x32" }
         buildoptions { "-U__STRICT_ANSI__"} -- pour definir M_PI
-        buildoptions { "-std=c++17", "-fpermissive" }
+        buildoptions { "-std=c++14", "-fpermissive" }
         defines { "WIN32", "_WIN32" }
         includedirs { "extern/mingw/include" }
         libdirs { "extern/mingw/lib" }
@@ -52,7 +52,7 @@ solution "gKit2light"
     
     configuration { "windows", "codeblocks", "x32" }
         buildoptions { "-U__STRICT_ANSI__"} -- pour definir M_PI
-        buildoptions { "-std=c++17", "-fpermissive" }
+        buildoptions { "-std=c++14", "-fpermissive" }
         defines { "WIN32", "_WIN32" }
         includedirs { "extern/mingw/include" }
         libdirs { "extern/mingw/lib" }
@@ -92,7 +92,7 @@ end
     
     configuration "macosx"
         frameworks= "-F /Library/Frameworks/"
-        buildoptions { "-std=c++17" }
+        buildoptions { "-std=c++14" }
         defines { "GK_MACOS" }
         buildoptions { frameworks }
         linkoptions { frameworks .. " -framework OpenGL -framework SDL2 -framework SDL2_image" }
