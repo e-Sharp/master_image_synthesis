@@ -11,11 +11,11 @@
 #include "text.h"
 
 #include <cstdlib>
+#include <ctime>
 #include <iostream>
 #include <memory>
 #include <vector>
 #include <ctime>
-#include <unistd.h>
 
 using namespace stu;
 
@@ -83,33 +83,6 @@ GLuint read_cubemap( const int unit, const char *filename,  const GLenum texel_t
     return texture;
 }
 
-auto circle(std::size_t n) {
-    auto v = std::vector<Point>(n);
-    for(std::size_t i = 0; i < n; ++i) {
-        v[i] = RotationX(360.f / n * i)(Point(0, 1, 0));
-    }
-    return v;
-}
-
-auto tube(const Track& c, int n = 10) {
-    auto m = std::make_unique<Mesh>(GL_TRIANGLES);
-    auto ci = circle(n);
-    for(std::size_t i = 1; i < c.nodes.size(); ++i) {
-        auto& n0 = c.nodes[i - 1];
-        auto& n1 = c.nodes[i];
-        for(std::size_t i = 0; i < n; ++ i) {
-            m->vertex(n0(ci[i]));
-            m->vertex(n0(ci[(i + 1) % n]));
-            m->vertex(n1(ci[(i + 1) % n]));
-
-            m->vertex(n0(ci[i]));
-            m->vertex(n1(ci[(i + 1) % n]));
-            m->vertex(n1(ci[i]));
-        }
-    }
-    return m;
-}
-
 class TP : public App {
 public:
     TP() : App(1280, 720) {}
@@ -117,12 +90,6 @@ public:
     int init() {
         program_uniform(m_program_draw, "ww", 1280);
         program_uniform(m_program_draw, "wh", 720);
-
-        m_colors.resize(16);
-        const Materials& materials= player.mesh.materials();
-        assert(materials.count() <= int(m_colors.size()));
-        for(int i= 0; i < materials.count(); i++)
-            m_colors[i]= materials.material(i).diffuse;
 
         glGenVertexArrays(1, &m_vao);
 
@@ -132,6 +99,17 @@ public:
         glDepthFunc(GL_LEQUAL);
         glEnable(GL_DEPTH_TEST);
 
+        unsigned nb_obstacles = 50;
+        unsigned co = 20;
+        for(std::size_t i = 0; i < nb_obstacles; ++i) {
+            if(std::rand() % 2) {
+                gear(std::back_inserter(obstacles), co, 3);
+                co += std::rand() % 10 + 5;
+            } else {
+                rotor(std::back_inserter(obstacles), co, 10);
+                co += std::rand() % 20 + 10;
+            }
+        }
         curve_mesh = tube(track, 30);
 
         unsigned nb_obstacles = 2000;
@@ -158,15 +136,12 @@ public:
             d += std::rand() % 6 - 3;
         }
 
-        player.coords.radius = 2.f;
-
         display = create_text();
         scores.load();
         return 0;
     }
 
     int quit() {
-        curve_mesh->release();
         release_text(display);
         return 0;
     }
@@ -187,15 +162,21 @@ public:
 
         player.update();
 
-        player_transform = transform(track, player.coords);
+        auto pt = transform(track, player.coords);
+        camera = Lookat(
+            pos(pt) - 5.f * fw(pt) + 3.f * up(pt),
+            pos(pt),
+            up(pt));
 
-        camera = Lookat(pos(player_transform) - 5.f * fw(player_transform) + 3.f * up(player_transform), pos(player_transform), up(player_transform));
 
-        {
-            player_collider.T = player_transform;
+        player_collider.T = pt;
+        player_transform = pt;
+
+        for(auto& o : obstacles) {
+            o.update(t);
         }
 
-        sc = player.coords.coordinate + sc_coins;
+        sc = player.coords.coordinate;
 
         return 0;
     }
@@ -223,13 +204,10 @@ public:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         Transform v = camera;
-        Transform vp = Perspective(90.f, 16.f / 9.f, 1.f, 1000.f) * v;
+        Transform p = Perspective(90.f, 16.f / 9.f, 1.f, 1000.f);
+        Transform vp = p * v;
     
-        glUseProgram(mesh_program);
-        program_uniform(mesh_program, "mesh_color", Color(1, 1, 1, 1));
-        program_uniform(mesh_program, "mvMatrix", v);
-        program_uniform(mesh_program, "mvpMatrix", vp);
-        curve_mesh->draw(mesh_program, true, false, false, false, false);
+        track.draw(Identity(), v, p);
 
         for(const auto& o : obstacles) {
             auto model = transform(track, o.coords);
@@ -271,16 +249,7 @@ public:
             coin_mesh.draw(mesh_program, true, false, false, false, false);
         }
 
-        {
-            auto t = transform(track, player.coords) * player.transform;
-
-            glUseProgram(m_program);
-            program_uniform(m_program, "mvMatrix", v * t);
-            program_uniform(m_program, "mvpMatrix", vp * t);
-            int location= glGetUniformLocation(m_program, "materials");
-            glUniform4fv(location, m_colors.size(), &m_colors[0].r);
-            player.mesh.draw(m_program, true, false, true, false, true);
-        }
+        player.draw(transform(track, player.coords), v, p);
 
         glUseProgram(m_program_draw);
         glBindVertexArray(m_vao);
@@ -302,20 +271,14 @@ public:
 protected:
     GLuint mesh_program = read_program(
         smart_path("data/shaders/mesh.glsl"));
-    GLuint mesh_color_program = read_program(
-        smart_path("data/shaders/mesh_color.glsl"),
-        "#define USE_COLOR\n");
     GLuint m_vao;
     GLuint m_texture = read_cubemap(0, smart_path("data/cubemap/space.png"));
-    GLuint m_program= read_program(smart_path("src/shader/materials.glsl"));
     GLuint m_program_draw = read_program(smart_path("src/shader/draw_cubemap.glsl"));
     std::vector<Color> m_colors;
 
     Transform camera;
 
     Track track = {};
-
-    std::unique_ptr<Mesh> curve_mesh;
 
     std::vector<Obstacle> obstacles;
     std::vector<Obstacle> coins;
@@ -337,11 +300,7 @@ protected:
 };
 
 void throwing_main() {
-    auto a = Vector(0, 0, 1);
-    auto b = Vector(0, 1, 0);
-    rotation(a, b);
-    TP tp;
-    tp.run();
+    TP().run();
 }
 
 int main(int, char**) {

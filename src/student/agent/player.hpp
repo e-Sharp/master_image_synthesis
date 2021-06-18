@@ -4,8 +4,9 @@
 #include "src/student/cylindrical_coordinates.hpp"
 
 #include "src/gKit/mat.h"
-#include "src/gKit/mesh.h"
-#include "src/gKit/window.h"
+#include "src/gKit/program.h"
+#include "src/gKit/uniforms.h"
+#include "src/gKit/vec.h"
 
 #include <cmath>
 
@@ -13,7 +14,13 @@ namespace stu {
 
 struct Player {
 	Player() {
-		
+		coords.radius = 2.f;
+
+		colors.resize(16);
+        const Materials& materials= mesh.materials();
+        assert(materials.count() <= int(colors.size()));
+        for(int i = 0; i < materials.count(); i++)
+            colors[i] = materials.material(i).diffuse;
 	}
 
 	// Controls.
@@ -32,6 +39,21 @@ struct Player {
 
 	void turn_right() {
 		turning_right = true;
+	}
+
+	void reset() {
+		coords = {0.f, 0.f, 2.f};
+		forward_speed = 0.1f;
+	}
+
+	void draw(Transform m, Transform v, Transform p) {
+		m = m * transform;
+        glUseProgram(shader);
+        program_uniform(shader, "mvMatrix", v * m);
+        program_uniform(shader, "mvpMatrix", p * v * m);
+        int location = glGetUniformLocation(shader, "materials");
+        glUniform4fv(location, colors.size(), &colors[0].r);
+        mesh.draw(shader, true, false, true, false, true);
 	}
 
 	void reset() {
@@ -94,8 +116,10 @@ struct Player {
 	float forward_speed = 0.1f;
 
 	Box collider = {};
+	std::vector<Color> colors = {};
 	CylindricalCoordinates coords = {};
 	Mesh mesh = read_mesh(smart_path("data/ship_min.obj"));
+	GLuint shader = read_program(smart_path("src/shader/materials.glsl"));
 	Transform transform = Identity();
 };
 
