@@ -38,6 +38,11 @@ struct Player {
 		
 	}
 
+	void reset() {
+		coords = {0.f, 0.f, 2.f};
+		forward_speed = 0.1f;
+	}
+
 	void update() {
 		forward_acceleration = 0.01f * (accelerating - braking);
 		if(turning_left) {
@@ -94,7 +99,7 @@ struct Player {
 
 	Box collider = {};
 	CylindricalCoordinates coords = {};
-	Mesh mesh = read_mesh(smart_path("data/ship.obj"));
+	Mesh mesh = read_mesh(smart_path("data/ship_min.obj"));
 	Transform transform = Identity();
 };
 

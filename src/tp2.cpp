@@ -8,12 +8,14 @@
 #include "program.h"
 #include "orbiter.h"
 #include "uniforms.h"
+#include "text.h"
 
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <ctime>
 
 using namespace stu;
 
@@ -111,11 +113,11 @@ auto tube(const Track& c, int n = 10) {
 
 class TP : public App {
 public:
-    TP() : App(1024, 640) {}
+    TP() : App(1280, 720) {}
 
     int init() {
-        program_uniform(m_program_draw, "ww", 1024);
-        program_uniform(m_program_draw, "wh", 640);
+        program_uniform(m_program_draw, "ww", 1280);
+        program_uniform(m_program_draw, "wh", 720);
 
         m_colors.resize(16);
         const Materials& materials= player.mesh.materials();
@@ -133,21 +135,40 @@ public:
 
         curve_mesh = tube(track, 30);
 
-        obstacles.resize(100);
-        for(int i = 0; i < 100; ++i) {
+        unsigned nb_obstacles = 2000;
+        obstacles.resize(nb_obstacles);
+        unsigned co = 20;
+        for(std::size_t i = 0; i < nb_obstacles; ++i) {
             auto& o = obstacles[i];
-            o.coords.azimuth = float(i);
-            o.coords.coordinate = float(i);
+            o.coords.azimuth = float(co*(std::rand()%20));
+            o.coords.coordinate = float(co);
             o.coords.radius = 2.f;
+            co += std::rand() % 5;
+        }
+
+        unsigned nb_coins = 2000;
+        coins.resize(nb_coins);
+        co = 20;
+        unsigned d = 0;
+        for(std::size_t i = 0; i < nb_coins; ++i) {
+            auto& o = coins[i];
+            o.coords.azimuth = float(co*d);
+            o.coords.coordinate = float(co);
+            o.coords.radius = 2.f;
+            co += std::rand() % 5;
+            d += std::rand() % 6 - 3;
         }
 
         player.coords.radius = 2.f;
 
+        display = create_text();
+        scores.load();
         return 0;
     }
 
     int quit() {
         curve_mesh->release();
+        release_text(display);
         return 0;
     }
 
@@ -175,7 +196,28 @@ public:
             player_collider.T = player_transform;
         }
 
+        sc = player.coords.coordinate + sc_coins;
+
         return 0;
+    }
+
+    int display_text() {
+        clear(display);
+        printf(display, 0, 0, "Score: %i", sc);
+        for(std::size_t i=0; i<std::min(scores.NB, scores.getScores()->size()); ++i)
+            printf(display, 0, i+2, "Top %i: %i", i+1, scores.getScores()->at(i));
+
+        draw(display, window_width(), window_height());
+
+        return 0;
+    }
+
+    void loose() {
+        scores.add(sc);
+        scores.save();
+        sc = 0;
+        sc_coins = 0;
+        player.reset();
     }
 
     int render() {
@@ -195,6 +237,7 @@ public:
             glUseProgram(mesh_program);
             if(collides(collider, player_collider)) {
                 program_uniform(mesh_program, "mesh_color", Color(1, 0, 0, 1));
+                loose();
             } else {
                 program_uniform(mesh_program, "mesh_color", Color(0, 1, 0, 1));
             }
@@ -203,11 +246,33 @@ public:
             obstable_mesh.draw(mesh_program, true, false, false, false, false);
         }
 
+        for(const auto& c : coins) {
+            auto model = transform(track, c.coords);
+            auto collider = Box();
+            collider.T = model;
+
+            glUseProgram(mesh_program);
+            if(collides(collider, player_collider)) {
+                program_uniform(mesh_program, "mesh_color", Color(1, 1, 0.5, 1));
+                if (!witness) {
+                    sc_coins += 20;
+                    witness = true;
+                    cref = c.coords.coordinate;
+                }
+            } else {
+                if (c.coords.coordinate == cref && witness)
+                    witness = false;
+                program_uniform(mesh_program, "mesh_color", Color(1, 1, 0, 1));
+            }
+            program_uniform(mesh_program, "mvMatrix", v * model);
+            program_uniform(mesh_program, "mvpMatrix", vp * model);
+            coin_mesh.draw(mesh_program, true, false, false, false, false);
+        }
+
         {
             auto t = transform(track, player.coords) * player.transform;
 
             glUseProgram(m_program);
-            program_uniform(m_program, "mesh_color", Color(1, 1, 1, 1));
             program_uniform(m_program, "mvMatrix", v * t);
             program_uniform(m_program, "mvpMatrix", vp * t);
             int location= glGetUniformLocation(m_program, "materials");
@@ -226,7 +291,9 @@ public:
         program_uniform(m_program_draw, "texture0", int(0));
         
         glDrawArrays(GL_TRIANGLES, 0, 3);
-        
+
+        display_text();
+
         return 1;
     }
 
@@ -235,8 +302,8 @@ protected:
         smart_path("data/shaders/mesh.glsl"));
     GLuint m_vao;
     GLuint m_texture = read_cubemap(0, smart_path("data/cubemap/space.png"));
-    GLuint m_program= read_program(smart_path("tutos/tuto9_materials.glsl"));
-    GLuint m_program_draw = read_program(smart_path("tutos/draw_cubemap.glsl"));
+    GLuint m_program= read_program(smart_path("src/shader/materials.glsl"));
+    GLuint m_program_draw = read_program(smart_path("src/shader/draw_cubemap.glsl"));
     std::vector<Color> m_colors;
 
     Transform camera;
@@ -246,13 +313,22 @@ protected:
     std::unique_ptr<Mesh> curve_mesh;
 
     std::vector<Obstacle> obstacles;
+    std::vector<Obstacle> coins;
     Player player;
 
     Box player_collider = {};
 
     Mesh obstable_mesh = read_mesh(smart_path("data/cube.obj"));
+    Mesh coin_mesh = read_mesh(smart_path("data/coin.obj"));
 
     Transform player_transform;
+
+    Text display;
+    unsigned sc = 0, sc_coins = 0;
+    bool witness = false;
+    float cref;
+
+    Scores scores;
 };
 
 void throwing_main() {

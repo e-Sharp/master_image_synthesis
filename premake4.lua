@@ -235,4 +235,3 @@ project("tp2")
     targetdir "bin"
     files ( gkit_files )
 
-include "box-intersection-etu"
